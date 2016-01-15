@@ -2,6 +2,8 @@
   (:gen-class))
 
 
+(require 'clojure.set)
+
 (defrecord Cell [x-coord y-coord is-alive])
 
 
@@ -21,6 +23,7 @@
 
 
 (defn get-cell [xymap grid]
+  (println (format "invoking get-cell on %s..." xymap))
   (nth (nth grid (:x-coord xymap)) (:y-coord xymap)))
 
 
@@ -39,13 +42,24 @@
 
 
 
-
+(comment
 (defn seed-cell [xymap grid]
   (let [x (:x-coord xymap)
         y (:y-coord xymap)]
 
     (assoc-in grid [x y] (->Cell x y true))
+   )
 )
+)
+
+
+(defn seed-cell [xymap grid]
+  (let [x (:x-coord xymap)
+        y (:y-coord xymap)]
+    (assoc grid x
+           (assoc (nth grid x) y (Cell. x y true)))
+    )
+  )
 
 
 (defn seed-cells [xy-tuples grid]
@@ -118,16 +132,7 @@
 
     (def xstart (- (.x-coord cell) x-neg-offset))
     (def ystart (- (.y-coord cell) y-neg-offset))
-
-    (println (format "cell coordinates are %d,%d" (.x-coord cell) (.y-coord cell)))
-    (println (format "grid size is %d x %d." gridsize gridsize))
     
-    (println (format "x starting point is %d." xstart))
-    (println (format "y starting point is %d." ystart))
-    
-    (println (format "reading frame y extent is %d." y-extent))
-    (println (format "reading frame x extent is %d." x-extent))
-
     (box-surrounding cell xstart x-extent ystart y-extent)
    )
 )
@@ -155,7 +160,7 @@
               true)
             (if (> (count (live-neighbors-of cell grid)) 3)
               false))
-      (cond (.is-dead cell)
+      (cond (not (.is-alive cell))
             (if (= (count (live-neighbors-of cell grid)) 3)
               true))))   
 
@@ -168,20 +173,48 @@
   (println "Cellular Automata by binarymachines")
 
 
-  (def cellgrid (seed-cells [[2 2] [3 2] [3 3] [3 4] [10 5] [11 4] [10 6]] (create-generation 15)))
+  ;(def cellgrid (seed-cell {:x-coord 1 :y-coord 1} (create-generation 3)))
 
+
+  (def cellgrid (seed-cells [[1 1] [0 0] [1 0] [1 2]] (create-generation 3)))
   
-  (show-cell {:x 2 :y 2} cellgrid)
-  (println (neighbors-of {:x 2 :y 2} cellgrid))
-
+  (doseq [n (range 0 3)] (println (nth cellgrid n)))
+  
+  
   
   (def current-gen (live-cells cellgrid))                                      ; assemble a list of all seeds
-  (def current-neighbors (for [cell current-gen] (neighbors-of cell)))         ; assemble a list of the neighbors of all seeds
-  (def kill-list (filter () current-gen))                                      ; generate a kill-list from seeds
-  (def revive-list (filter () current-neighbors))                              ; generate a revive-list from all neighbors
-  (def next-gen                                      ; next generation is every seed not on the kill list + every neighbor on the revive list
+
+  (println current-gen)
+
+  ; assemble a list of the neighbors of all seeds
+  (def current-neighbors (set (for [cell current-gen] (neighbors-of cell cellgrid))))
+  ;(def current-neighbors (map (fn [cell] (neighbors-of cell cellgrid)) current-gen))
+
   
+  (println "current neighbors: ")
+  (println current-neighbors)
+  (println "------------------")
+
+
+  
+  (println ">> generating kill list...")
+  ; generate a kill-list from seeds
+  (def kill-list (filter (fn [xymap] (not (cell-lives-in-next-gen xymap cellgrid))) current-gen))
+
+  (println kill-list)
+
+ 
+  (println ">> generating revive list...")
+  ; generate a revive-list from all neighbors
+  (def revive-list (filter (fn [xymap] (cell-lives-in-next-gen xymap cellgrid)) current-neighbors))                              
+   (comment
+  ; next generation is every seed NOT on the kill list + every neighbor on the revive list
+  
+  (def next-gen-survivors (clojure.set/difference (set current-gen) (set kill-list)))
+  (def next-gen-revived (clojure.set/intersection (set current-neighbors) (set revive-list)))
+  ;(def next-gen (clojure.set/union (set next-gen-survivors) (set next-gen-revived)))
   
   )
+)
 
   
