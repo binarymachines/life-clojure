@@ -2,6 +2,7 @@
   (:gen-class))
 
 (require 'clojure.set)
+(require '[clojure.tools.cli :refer [cli]])
 
 
 (defrecord Cell [x-coord y-coord is-alive])
@@ -53,17 +54,21 @@
     false))
 
 
+(defn cells-to-xy-tuples [cell-list]
+  (vec (map (fn [cell] [(.x-coord cell) (.y-coord cell)]) cell-list)))
+
+
 (defn live-cells [grid]
-  (flatten (for [slice grid] (filter (fn [cell] (.is-alive cell)) slice))))
+  (vec (filter (fn [c] (.is-alive c)) (for [slice grid cell slice] cell))))
 
 
 
 (defn box-surrounding [cell xstart x-extent ystart y-extent ]
 
   (def xcoords (vec (range xstart (+ xstart x-extent))))
-  (def xcoords (flatten (repeat y-extent xcoords)))
+  (def xcoords (vec (for [column (repeat y-extent xcoords) coord column] coord)))
   (def ycoords (vec (map (fn [y] (repeat x-extent y)) (range ystart (+ ystart y-extent)))))
-  (def ycoords (flatten ycoords))  
+  (def ycoords (vec (for [row ycoords coord row] coord)))
   (def neighbor-cells (map xy-tuple-to-map (map vector xcoords ycoords) ))
 
   (filter (fn [xymap] (not (coordinates-match cell xymap))) neighbor-cells))
@@ -112,6 +117,10 @@
   (filter (fn [c] (cell-status c grid)) (neighbors-of cell grid)))
 
 
+(defn aggregate-neighbors [cells cellgrid]
+  (distinct (flatten (map (fn [cell] (neighbors-of cell cellgrid)) cells))))
+
+
   
 (defn cell-lives-in-next-gen? [xymap grid]
       "determines whether a cell in a CA
@@ -154,8 +163,9 @@
   (println "------------------")
 
   ; assemble a list of the neighbors of all seeds
-  (def current-neighbors (distinct (flatten (map (fn [cell] (neighbors-of cell cellgrid)) current-gen))))
+  ;(def current-neighbors (distinct (flatten (map (fn [cell] (neighbors-of cell cellgrid)) current-gen))))
 
+  (def current-neighbors (aggregate-neighbors current-gen cellgrid))
   
   (println "current neighbors: ")  
   (println current-neighbors)
